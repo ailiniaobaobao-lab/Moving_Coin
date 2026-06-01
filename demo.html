@@ -1,0 +1,1397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Coin Stimuli Demo</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #f4f4f4;
+      color: #222;
+    }
+
+    .page {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 18px;
+    }
+
+    .main-layout {
+      display: flex;
+      gap: 18px;
+      align-items: flex-start;
+    }
+
+    .control-panel {
+      width: 260px;
+      flex: 0 0 260px;
+      background: white;
+      padding: 14px;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .demo-area {
+      flex: 1;
+      background: white;
+      padding: 18px;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    canvas {
+      width: 100%;
+      height: auto;
+      background: #eeeeee;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      display: block;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 15px;
+      margin: 6px 0;
+    }
+
+    .trial-btn {
+      width: 100%;
+      background: #e5e5e5;
+      color: #222;
+      text-align: left;
+    }
+
+    .trial-btn:hover {
+      background: #d0d0d0;
+    }
+
+    .trial-btn.active {
+      background: #333;
+      color: white;
+      font-weight: bold;
+    }
+
+    .run-btn {
+      width: 100%;
+      background: #2d6cdf;
+      color: white;
+    }
+
+    .stop-btn {
+      width: 100%;
+      background: #777;
+      color: white;
+    }
+
+    .trial-list {
+      margin-top: 14px;
+    }
+
+    .trial-settings {
+      margin-top: 16px;
+      padding: 14px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      background: #fafafa;
+    }
+
+    .trial-settings h3 {
+      margin: 0 0 12px;
+      font-size: 16px;
+    }
+
+    .setting-row {
+      display: grid;
+      gap: 8px;
+    }
+
+    .setting-row + .setting-row {
+      margin-top: 14px;
+    }
+
+    .setting-row label {
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .setting-row input {
+      width: 100%;
+    }
+
+    .radio-options {
+      display: grid;
+      gap: 6px;
+    }
+
+    .radio-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: normal;
+    }
+
+    .radio-option input {
+      width: auto;
+    }
+
+    .number-input {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    .probe-area {
+      margin-top: 20px;
+      padding: 18px;
+      background: #fafafa;
+      border: 1px solid #ddd;
+      border-radius: 10px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #probe-display {
+      margin: 14px 0;
+      min-height: 70px;
+    }
+
+    .response-buttons button {
+      background: #333;
+      color: white;
+      margin-right: 10px;
+    }
+
+    #response-feedback {
+      font-size: 48px;
+      font-weight: bold;
+      margin-top: 10px;
+      line-height: 1;
+    }
+
+    #response-feedback.correct {
+      color: #138a36;
+    }
+
+    #response-feedback.incorrect {
+      color: #c62828;
+    }
+
+    .section-switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .section-btn {
+      background: #e5e5e5;
+      color: #222;
+      font-weight: bold;
+      margin: 0;
+      padding: 10px 8px;
+    }
+
+    .section-btn.active {
+      background: #333;
+      color: white;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app-screen" class="page">
+    <div class="main-layout">
+      <div class="control-panel">
+        <div class="section-switch">
+          <button id="color-section-btn" class="section-btn" onclick="switchSection('color')">color trials</button>
+          <button id="location-section-btn" class="section-btn" onclick="switchSection('location')">location trials</button>
+        </div>
+
+        <div id="trial-list" class="trial-list">
+        </div>
+
+        <div id="trial-settings" class="trial-settings hidden">
+          <h3>Trial Settings</h3>
+          <div class="setting-row">
+            <label>Circle speed</label>
+            <div class="radio-options">
+              <label class="radio-option">
+                <input
+                  type="radio"
+                  name="circle-speed"
+                  value="1.25"
+                  data-label="fast (1.25x)"
+                  onchange="setCircleSpeed(this.value)"
+                />
+                fast (1.25x)
+              </label>
+              <label class="radio-option">
+                <input
+                  type="radio"
+                  name="circle-speed"
+                  value="1"
+                  data-label="normal (1x)"
+                  checked
+                  onchange="setCircleSpeed(this.value)"
+                />
+                normal (1x)
+              </label>
+              <label class="radio-option">
+                <input
+                  type="radio"
+                  name="circle-speed"
+                  value="0.75"
+                  data-label="slow (0.75x)"
+                  onchange="setCircleSpeed(this.value)"
+                />
+                slow (0.75x)
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <label>Trial version</label>
+            <div class="radio-options">
+              <label class="radio-option">
+                <input
+                  type="radio"
+                  name="trial-version"
+                  value="perception"
+                  onchange="setTrialVersion(this.value)"
+                />
+                perception
+              </label>
+              <label class="radio-option">
+                <input
+                  type="radio"
+                  name="trial-version"
+                  value="occlusion"
+                  checked
+                  onchange="setTrialVersion(this.value)"
+                />
+                occlusion
+              </label>
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <label>Ding timing</label>
+            <div class="radio-options">
+              <label class="radio-option">
+                <input
+                  type="radio"
+                  name="ding-position"
+                  value="early"
+                  onchange="setTrialDingPosition(this.value)"
+                />
+                early
+              </label>
+              <label class="radio-option">
+                <input
+                  type="radio"
+                  name="ding-position"
+                  value="late"
+                  onchange="setTrialDingPosition(this.value)"
+                />
+                late
+              </label>
+            </div>
+          </div>
+
+          <div id="color-probe-settings" class="setting-row hidden">
+            <label>Probe condition</label>
+            <div class="radio-options">
+              <label class="radio-option">
+                <input
+                  type="radio"
+                  name="color-probe-condition"
+                  value="too-dark"
+                  onchange="setTrialProbeCondition(this.value)"
+                />
+                too dark
+              </label>
+              <label class="radio-option">
+                <input
+                  type="radio"
+                  name="color-probe-condition"
+                  value="too-light"
+                  onchange="setTrialProbeCondition(this.value)"
+                />
+                too light
+              </label>
+              <label class="radio-option">
+                <input
+                  type="radio"
+                  name="color-probe-condition"
+                  value="correct"
+                  onchange="setTrialProbeCondition(this.value)"
+                />
+                correct
+              </label>
+            </div>
+          </div>
+
+          <div id="location-probe-settings" class="setting-row hidden">
+            <label>Probe condition</label>
+            <div class="radio-options">
+              <label class="radio-option">
+                <input
+                  type="radio"
+                  name="location-probe-condition"
+                  value="too-early"
+                  onchange="setTrialProbeCondition(this.value)"
+                />
+                too early
+              </label>
+              <label class="radio-option">
+                <input
+                  type="radio"
+                  name="location-probe-condition"
+                  value="too-late"
+                  onchange="setTrialProbeCondition(this.value)"
+                />
+                too late
+              </label>
+              <label class="radio-option">
+                <input
+                  type="radio"
+                  name="location-probe-condition"
+                  value="correct"
+                  onchange="setTrialProbeCondition(this.value)"
+                />
+                correct
+              </label>
+            </div>
+          </div>
+
+          <div id="probe-offset-settings" class="setting-row hidden">
+            <label id="probe-offset-label" for="probe-offset-input">Probe offset</label>
+            <input
+              id="probe-offset-input"
+              class="number-input"
+              type="number"
+              onchange="setTrialProbeOffset(this.value)"
+              oninput="setTrialProbeOffset(this.value, false)"
+            />
+          </div>
+        </div>
+
+        <hr />
+
+        <button class="run-btn" onclick="runCurrentTrial()">
+          Replay Current Trial
+        </button>
+
+        <button class="stop-btn" onclick="stopAnimation()">
+          Stop
+        </button>
+
+        <pre id="trial-info" class="hidden"></pre>
+      </div>
+
+      <div class="demo-area">
+        <canvas id="stimulus-canvas" width="900" height="520"></canvas>
+
+        <div id="probe-area" class="probe-area hidden">
+          <h2 id="probe-question">Probe Question</h2>
+
+          <div id="probe-display"></div>
+
+          <div id="response-buttons" class="response-buttons">
+          </div>
+
+          <p id="response-feedback"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ======================================================
+    // Coin Stimuli Demo
+    // Single-file version
+    // ======================================================
+
+    // ------------------------------------------------------
+    // Canvas setup
+    // ------------------------------------------------------
+
+    const canvas = document.getElementById("stimulus-canvas");
+    const ctx = canvas.getContext("2d");
+
+    const trialListDiv = document.getElementById("trial-list");
+    const trialInfoPre = document.getElementById("trial-info");
+    const probeArea = document.getElementById("probe-area");
+    const probeQuestion = document.getElementById("probe-question");
+    const probeDisplay = document.getElementById("probe-display");
+    const responseButtons = document.getElementById("response-buttons");
+    const responseFeedback = document.getElementById("response-feedback");
+    const colorSectionBtn = document.getElementById("color-section-btn");
+    const locationSectionBtn = document.getElementById("location-section-btn");
+    const trialSettings = document.getElementById("trial-settings");
+    const speedInputs = document.querySelectorAll("input[name='circle-speed']");
+    const trialVersionInputs = document.querySelectorAll("input[name='trial-version']");
+    const dingPositionInputs = document.querySelectorAll("input[name='ding-position']");
+    const colorProbeInputs = document.querySelectorAll("input[name='color-probe-condition']");
+    const locationProbeInputs = document.querySelectorAll("input[name='location-probe-condition']");
+    const colorProbeSettings = document.getElementById("color-probe-settings");
+    const locationProbeSettings = document.getElementById("location-probe-settings");
+    const probeOffsetSettings = document.getElementById("probe-offset-settings");
+    const probeOffsetLabel = document.getElementById("probe-offset-label");
+    const probeOffsetInput = document.getElementById("probe-offset-input");
+
+    let currentTrial = null;
+    let animationFrameId = null;
+    let animationStartTime = null;
+    let dingPlayed = false;
+    let trueStateAtDing = null;
+    let objectStopped = false;
+    const SPEED_BASELINE = 0.5;
+    let circleSpeed = SPEED_BASELINE;
+    let currentTrialVersion = "occlusion";
+    let currentProbeCondition = null;
+    let currentDingProgress = null;
+    let currentDingPosition = null;
+    const PROBE_MARKER_RADIUS = 14;
+    const DEFAULT_COLOR_PROBE_OFFSET = 70;
+    const DEFAULT_LOCATION_PROBE_OFFSET = 0.14;
+
+    // ------------------------------------------------------
+    // Ding sound
+    // This creates a simple sound directly in the browser.
+    // No audio file needed.
+    // ------------------------------------------------------
+
+    function playDing() {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+
+      gainNode.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.25, audioCtx.currentTime + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.25);
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + 0.28);
+    }
+
+    // ======================================================
+    // TRIAL SETTINGS
+    // 你之后主要改这里。
+    //
+    // startGray / endGray:
+    // 0 = black, 255 = white
+    //
+    // duration:
+    // 单位都是 milliseconds
+    //
+    // arcDirection:
+    // -1 = upward semicircle, 1 = downward semicircle
+    //
+    // dingPosition:
+    // "early" = earlier inside occluder, "late" = later inside occluder
+    //
+    // probeCondition:
+    // color: "too-dark", "too-light", "correct"
+    // location: "too-early", "too-late", "correct"
+    // ======================================================
+
+    const COLOR_TRIALS = [
+      {
+        name: "Color 1: black → white",
+        trialType: "color",
+
+        startX: 120,
+        startY: 420,
+        endX: 780,
+        endY: 420,
+        arcDirection: -1,
+
+        startGray: 0,
+        endGray: 255,
+
+        duration: 3000,
+        occluderStartTime: 900,
+        occluderEndTime: 2400,
+        dingPosition: "early",
+
+        objectRadius: 34,
+
+        occluderX: 160,
+        occluderY: 55,
+        occluderW: 580,
+        occluderH: 200,
+
+        probeMode: "color",
+        probeCondition: "too-light"
+      },
+
+      {
+        name: "Color 2: white → black",
+        trialType: "color",
+
+        startX: 120,
+        startY: 420,
+        endX: 780,
+        endY: 420,
+        arcDirection: -1,
+
+        startGray: 255,
+        endGray: 0,
+
+        duration: 3000,
+        occluderStartTime: 900,
+        occluderEndTime: 2400,
+        dingPosition: "late",
+
+        objectRadius: 34,
+
+        occluderX: 160,
+        occluderY: 55,
+        occluderW: 580,
+        occluderH: 200,
+
+        probeMode: "color",
+        probeCondition: "too-dark"
+      }
+    ];
+
+    const LOCATION_TRIALS = [
+      {
+        name: "Location 1: left lower → right lower",
+        trialType: "location",
+
+        startX: 120,
+        startY: 420,
+        endX: 780,
+        endY: 420,
+        arcDirection: -1,
+
+        startGray: 40,
+        endGray: 220,
+
+        duration: 3000,
+        occluderStartTime: 900,
+        occluderEndTime: 2400,
+        dingPosition: "early",
+
+        objectRadius: 34,
+
+        occluderX: 160,
+        occluderY: 55,
+        occluderW: 580,
+        occluderH: 200,
+
+        probeMode: "location",
+        probeCondition: "too-early"
+      },
+
+      {
+        name: "Location 2: right lower → left lower",
+        trialType: "location",
+
+        startX: 780,
+        startY: 420,
+        endX: 120,
+        endY: 420,
+        arcDirection: -1,
+
+        startGray: 40,
+        endGray: 220,
+
+        duration: 3000,
+        occluderStartTime: 900,
+        occluderEndTime: 2400,
+        dingPosition: "late",
+
+        objectRadius: 34,
+
+        occluderX: 160,
+        occluderY: 55,
+        occluderW: 580,
+        occluderH: 200,
+
+        probeMode: "location",
+        probeCondition: "correct"
+      },
+
+      {
+        name: "Location 3: left upper → right upper",
+        trialType: "location",
+
+        startX: 120,
+        startY: 100,
+        endX: 780,
+        endY: 100,
+        arcDirection: 1,
+
+        startGray: 40,
+        endGray: 220,
+
+        duration: 3000,
+        occluderStartTime: 900,
+        occluderEndTime: 2400,
+        dingPosition: "late",
+
+        objectRadius: 34,
+
+        occluderX: 160,
+        occluderY: 266,
+        occluderW: 580,
+        occluderH: 200,
+
+        probeMode: "location",
+        probeCondition: "too-late"
+      },
+
+      {
+        name: "Location 4: right upper → left upper",
+        trialType: "location",
+
+        startX: 780,
+        startY: 100,
+        endX: 120,
+        endY: 100,
+        arcDirection: 1,
+
+        startGray: 40,
+        endGray: 220,
+
+        duration: 3000,
+        occluderStartTime: 900,
+        occluderEndTime: 2400,
+        dingPosition: "late",
+
+        objectRadius: 34,
+
+        occluderX: 160,
+        occluderY: 266,
+        occluderW: 580,
+        occluderH: 200,
+
+        probeMode: "location",
+        probeCondition: "too-early"
+      }
+    ];
+
+    // ------------------------------------------------------
+    // UI functions
+    // ------------------------------------------------------
+
+    function switchSection(section) {
+      stopAnimation();
+      hideProbe();
+      clearCanvas();
+      currentTrial = null;
+      trialInfoPre.textContent = "";
+      hideTrialSettings();
+
+      colorSectionBtn.classList.toggle("active", section === "color");
+      locationSectionBtn.classList.toggle("active", section === "location");
+
+      if (section === "color") {
+        showTrialList(COLOR_TRIALS);
+      } else if (section === "location") {
+        showTrialList(LOCATION_TRIALS);
+      }
+    }
+
+    function showTrialList(category) {
+      stopAnimation();
+      clearCanvas();
+      hideProbe();
+      hideTrialSettings();
+
+      trialListDiv.innerHTML = "";
+
+      category.forEach((trial) => {
+        const btn = document.createElement("button");
+        btn.className = "trial-btn";
+        btn.textContent = trial.name;
+        btn.onclick = () => selectTrial(trial);
+        trialListDiv.appendChild(btn);
+      });
+    }
+
+    function selectTrial(trial) {
+      currentTrial = trial;
+      updateSelectedTrialButton(trial);
+      showTrialSettings();
+      updateTrialInfo(trial);
+      runCurrentTrial();
+    }
+
+    function updateSelectedTrialButton(trial) {
+      trialListDiv.querySelectorAll(".trial-btn").forEach((button) => {
+        button.classList.toggle("active", button.textContent === trial.name);
+      });
+    }
+
+    function showTrialSettings() {
+      setCircleSpeed(1, false);
+      setTrialVersion("occlusion", false);
+      syncTrialSettingControls(currentTrial);
+      trialSettings.classList.remove("hidden");
+    }
+
+    function hideTrialSettings() {
+      trialSettings.classList.add("hidden");
+    }
+
+    function setCircleSpeed(value, shouldReplay = true) {
+      const displayedSpeed = Number(value);
+      circleSpeed = displayedSpeed * SPEED_BASELINE;
+
+      speedInputs.forEach((input) => {
+        input.checked = Number(input.value) === displayedSpeed;
+      });
+
+      if (shouldReplay && currentTrial) {
+        runCurrentTrial();
+      }
+    }
+
+    function setTrialVersion(version, shouldReplay = true) {
+      currentTrialVersion = version;
+
+      trialVersionInputs.forEach((input) => {
+        input.checked = input.value === version;
+      });
+
+      if (shouldReplay && currentTrial) {
+        runCurrentTrial();
+      }
+    }
+
+    function setTrialDingPosition(position, shouldReplay = true) {
+      if (!currentTrial) {
+        return;
+      }
+
+      currentTrial.dingPosition = position;
+      syncRadioGroup(dingPositionInputs, position);
+
+      if (shouldReplay) {
+        runCurrentTrial();
+      }
+    }
+
+    function setTrialProbeCondition(condition, shouldReplay = true) {
+      if (!currentTrial) {
+        return;
+      }
+
+      currentTrial.probeCondition = condition;
+      syncTrialSettingControls(currentTrial);
+
+      if (shouldReplay) {
+        runCurrentTrial();
+      }
+    }
+
+    function setTrialProbeOffset(value, shouldReplay = true) {
+      if (!currentTrial) {
+        return;
+      }
+
+      const parsedValue = Number(value);
+
+      if (!Number.isFinite(parsedValue)) {
+        return;
+      }
+
+      if (currentTrial.probeMode === "color") {
+        currentTrial.probeOffset = clamp(parsedValue, 0, 255);
+      } else {
+        currentTrial.probeOffset = clamp(parsedValue, 0, 0.5);
+      }
+
+      probeOffsetInput.value = currentTrial.probeOffset;
+      updateTrialInfo(currentTrial);
+
+      if (shouldReplay) {
+        runCurrentTrial();
+      }
+    }
+
+    function syncTrialSettingControls(trial) {
+      if (!trial) {
+        return;
+      }
+
+      syncRadioGroup(dingPositionInputs, trial.dingPosition);
+
+      if (trial.probeMode === "color") {
+        colorProbeSettings.classList.remove("hidden");
+        locationProbeSettings.classList.add("hidden");
+        syncRadioGroup(colorProbeInputs, trial.probeCondition);
+        syncProbeOffsetControl(trial, "Gray offset", 1, 0, 255, DEFAULT_COLOR_PROBE_OFFSET);
+      } else {
+        colorProbeSettings.classList.add("hidden");
+        locationProbeSettings.classList.remove("hidden");
+        syncRadioGroup(locationProbeInputs, trial.probeCondition);
+        syncProbeOffsetControl(trial, "Position offset", 0.01, 0, 0.5, DEFAULT_LOCATION_PROBE_OFFSET);
+      }
+    }
+
+    function syncProbeOffsetControl(trial, label, step, min, max, defaultValue) {
+      if (trial.probeOffset === undefined) {
+        trial.probeOffset = defaultValue;
+      }
+
+      probeOffsetSettings.classList.remove("hidden");
+      probeOffsetLabel.textContent = label;
+      probeOffsetInput.step = step;
+      probeOffsetInput.min = min;
+      probeOffsetInput.max = max;
+      probeOffsetInput.value = trial.probeOffset;
+    }
+
+    function syncRadioGroup(inputs, value) {
+      inputs.forEach((input) => {
+        input.checked = input.value === value;
+      });
+    }
+
+    function updateTrialInfo(trial) {
+      trialInfoPre.textContent = JSON.stringify(
+        {
+          name: trial.name,
+          trialType: trial.trialType,
+          startPosition: [trial.startX, trial.startY],
+          endPosition: [trial.endX, trial.endY],
+          arcDirection: trial.arcDirection,
+          version: currentTrialVersion,
+          startGray: trial.startGray,
+          endGray: trial.endGray,
+          duration: trial.duration,
+          dingPosition: trial.dingPosition,
+          probeMode: trial.probeMode,
+          probeCondition: trial.probeCondition,
+          probeOffset: trial.probeOffset
+        },
+        null,
+        2
+      );
+    }
+
+    function runCurrentTrial() {
+      if (!currentTrial) {
+        alert("Please select a trial first.");
+        return;
+      }
+
+      stopAnimation();
+      hideProbe();
+
+      animationStartTime = null;
+      dingPlayed = false;
+      trueStateAtDing = null;
+      objectStopped = false;
+      currentProbeCondition = null;
+      setDingPosition(currentTrial);
+      updateTrialInfo(currentTrial);
+
+      animationFrameId = requestAnimationFrame((timestamp) => {
+        animationLoop(timestamp, currentTrial);
+      });
+    }
+
+    function stopAnimation() {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+    }
+
+    function hideProbe() {
+      probeArea.classList.add("hidden");
+      probeDisplay.innerHTML = "";
+      responseButtons.innerHTML = "";
+      responseFeedback.textContent = "";
+      responseFeedback.className = "";
+    }
+
+    // ------------------------------------------------------
+    // Animation logic
+    // ------------------------------------------------------
+
+    function animationLoop(timestamp, trial) {
+      if (!animationStartTime) {
+        animationStartTime = timestamp;
+      }
+
+      const realElapsed = timestamp - animationStartTime;
+      const elapsed = realElapsed * circleSpeed;
+      const progress = Math.min(elapsed / trial.duration, 1);
+
+      const liveState = computeObjectState(trial, progress);
+
+      // Ding moment
+      if (!dingPlayed && progress >= currentDingProgress) {
+        dingPlayed = true;
+        trueStateAtDing = {
+          ...computeObjectState(trial, currentDingProgress),
+          progress: currentDingProgress
+        };
+
+        playDing();
+
+        // Your design: ding means movement and color change both stop.
+        objectStopped = true;
+
+        console.log("DING STATE", {
+          trialName: trial.name,
+          elapsed: Math.round(elapsed),
+          dingPosition: currentDingPosition,
+          dingProgress: currentDingProgress,
+          trueX: Math.round(trueStateAtDing.x),
+          trueY: Math.round(trueStateAtDing.y),
+          trueGray: trueStateAtDing.gray
+        });
+
+        drawScene(trial, trueStateAtDing, elapsed);
+        animationFrameId = null;
+        showProbe(trial);
+        return;
+      }
+
+      // If ding happened, draw the stopped object.
+      // If not, draw the moving object.
+      const stateToDraw = objectStopped && trueStateAtDing
+        ? trueStateAtDing
+        : liveState;
+
+      drawScene(trial, stateToDraw, elapsed);
+
+      animationFrameId = requestAnimationFrame((newTimestamp) => {
+        animationLoop(newTimestamp, trial);
+      });
+    }
+
+    function computeObjectState(trial, progress) {
+      const position = computeObjectPosition(trial, progress);
+      const gray = interpolate(trial.startGray, trial.endGray, progress);
+
+      return {
+        x: position.x,
+        y: position.y,
+        gray: Math.round(gray)
+      };
+    }
+
+    function computeObjectPosition(trial, progress) {
+      if (trial.arcDirection && trial.startY === trial.endY) {
+        const centerX = (trial.startX + trial.endX) / 2;
+        const radius = Math.abs(trial.endX - trial.startX) / 2;
+        const startAngle = trial.startX < trial.endX ? Math.PI : 0;
+        const endAngle = trial.startX < trial.endX ? 0 : Math.PI;
+        const angle = interpolate(startAngle, endAngle, progress);
+
+        return {
+          x: centerX + Math.cos(angle) * radius,
+          y: trial.startY + trial.arcDirection * Math.sin(angle) * radius
+        };
+      }
+
+      return {
+        x: interpolate(trial.startX, trial.endX, progress),
+        y: interpolate(trial.startY, trial.endY, progress)
+      };
+    }
+
+    function setDingPosition(trial) {
+      const candidates = getDingCandidates(trial);
+      const chosen = candidates.find((candidate) => candidate.label === trial.dingPosition)
+        || candidates.find((candidate) => candidate.label === "late")
+        || candidates[0];
+
+      currentDingPosition = chosen.label;
+      currentDingProgress = chosen.progress;
+    }
+
+    function getDingCandidates(trial) {
+      const positions = [
+        ["early", 0.35],
+        ["late", 0.65]
+      ];
+
+      return positions.map(([label, progress]) => ({
+        label,
+        progress
+      }));
+    }
+
+    function progressForX(trial, x) {
+      if (trial.arcDirection && trial.startY === trial.endY) {
+        const centerX = (trial.startX + trial.endX) / 2;
+        const radius = Math.abs(trial.endX - trial.startX) / 2;
+        const angle = Math.acos(clamp((x - centerX) / radius, -1, 1));
+
+        return trial.endX > trial.startX
+          ? (Math.PI - angle) / Math.PI
+          : angle / Math.PI;
+      }
+
+      return (x - trial.startX) / (trial.endX - trial.startX);
+    }
+
+    function interpolate(start, end, progress) {
+      return start + (end - start) * progress;
+    }
+
+    // ------------------------------------------------------
+    // Drawing functions
+    // ------------------------------------------------------
+
+    function clearCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#eeeeee";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function drawScene(trial, state, elapsed) {
+      clearCanvas();
+
+      drawTrajectoryGuide(trial);
+      drawObject(state.x, state.y, trial.objectRadius, state.gray);
+
+      if (currentTrialVersion !== "perception") {
+        drawOccluder(trial);
+        drawTrajectoryGuide(trial, getOccluderRect(trial));
+      }
+
+      drawFixation();
+    }
+
+    function drawFixation() {
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+
+      ctx.strokeStyle = "#333";
+      ctx.lineWidth = 2;
+
+      ctx.beginPath();
+      ctx.moveTo(centerX - 10, centerY);
+      ctx.lineTo(centerX + 10, centerY);
+      ctx.moveTo(centerX, centerY - 10);
+      ctx.lineTo(centerX, centerY + 10);
+      ctx.stroke();
+    }
+
+    function drawTrajectoryGuide(trial, clipRect = null) {
+      if (clipRect) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(clipRect.x, clipRect.y, clipRect.w, clipRect.h);
+        ctx.clip();
+      }
+
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.18)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 8]);
+
+      ctx.beginPath();
+
+      for (let i = 0; i <= 80; i++) {
+        const position = computeObjectPosition(trial, i / 80);
+
+        if (i === 0) {
+          ctx.moveTo(position.x, position.y);
+        } else {
+          ctx.lineTo(position.x, position.y);
+        }
+      }
+
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      if (clipRect) {
+        ctx.restore();
+      }
+    }
+
+    function drawObject(x, y, radius, gray) {
+      const color = `rgb(${gray}, ${gray}, ${gray})`;
+
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#222";
+      ctx.stroke();
+    }
+
+    function drawOccluder(trial) {
+      const occluder = getOccluderRect(trial);
+
+      ctx.fillStyle = "#eeeeee";
+      ctx.fillRect(
+        occluder.x,
+        occluder.y,
+        occluder.w,
+        occluder.h
+      );
+
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "rgba(0, 0, 0, 0)";
+      ctx.strokeRect(
+        occluder.x,
+        occluder.y,
+        occluder.w,
+        occluder.h
+      );
+    }
+
+    function getOccluderRect(trial) {
+      const horizontalPadding = -35;
+      const verticalPadding = 44;
+      const x = trial.occluderX - horizontalPadding;
+      const y = Math.max(0, trial.occluderY - verticalPadding);
+      const w = trial.occluderW + horizontalPadding * 2;
+      const h = Math.min(
+        canvas.height - y,
+        trial.occluderH + verticalPadding * 2
+      );
+
+      return { x, y, w, h };
+    }
+
+    // ------------------------------------------------------
+    // Probe functions
+    // ------------------------------------------------------
+
+    function showProbe(trial) {
+      if (!trueStateAtDing) {
+        return;
+      }
+
+      probeArea.classList.remove("hidden");
+      responseFeedback.textContent = "";
+      responseFeedback.className = "";
+
+      if (trial.probeMode === "color") {
+        showColorProbe(trial);
+      } else if (trial.probeMode === "location") {
+        showLocationProbe(trial);
+      }
+    }
+
+    function showColorProbe(trial) {
+      currentProbeCondition = getProbeCondition(trial, ["too-dark", "too-light", "correct"]);
+      probeQuestion.textContent = "Was the object this color when the ding occurred?";
+
+      let probeGray = trueStateAtDing.gray;
+      const probeOffset = trial.probeOffset ?? DEFAULT_COLOR_PROBE_OFFSET;
+
+      if (currentProbeCondition === "too-dark") {
+        probeGray -= probeOffset;
+      } else if (currentProbeCondition === "too-light") {
+        probeGray += probeOffset;
+      }
+
+      probeGray = clamp(probeGray, 0, 255);
+
+      probeDisplay.innerHTML = "";
+      renderResponseButtons();
+
+      const circle = document.createElement("div");
+      circle.style.width = "78px";
+      circle.style.height = "78px";
+      circle.style.borderRadius = "50%";
+      circle.style.border = "3px solid #222";
+      circle.style.background = `rgb(${probeGray}, ${probeGray}, ${probeGray})`;
+
+      probeDisplay.appendChild(circle);
+
+      console.log("COLOR PROBE", {
+        trueGray: trueStateAtDing.gray,
+        probeGray: probeGray,
+        probeOffset: probeOffset,
+        probeCondition: currentProbeCondition
+      });
+    }
+
+    function showLocationProbe(trial) {
+      currentProbeCondition = getProbeCondition(trial, ["too-early", "too-late", "correct"]);
+      probeQuestion.textContent = "Was the object at this location when the ding occurred?";
+
+      clearCanvas();
+
+      if (currentTrialVersion !== "perception") {
+        drawOccluder(trial);
+      }
+
+      const occluderProgressBounds = getOccluderProgressBounds(trial);
+      const probeProgress = getLocationProbeProgress(
+        trueStateAtDing.progress,
+        currentProbeCondition,
+        occluderProgressBounds
+      );
+      const probeState = computeObjectState(
+        trial,
+        probeProgress
+      );
+
+      if (currentTrialVersion === "perception") {
+        drawObject(
+          trueStateAtDing.x,
+          trueStateAtDing.y,
+          trial.objectRadius,
+          trueStateAtDing.gray
+        );
+      }
+
+      drawProbeMarker(probeState.x, probeState.y);
+      drawFixation();
+
+      probeDisplay.innerHTML = `
+        <p>
+          Was the object there when the ding occurred?
+        </p>
+      `;
+      renderResponseButtons();
+
+      console.log("LOCATION PROBE", {
+        trueX: Math.round(trueStateAtDing.x),
+        trueY: Math.round(trueStateAtDing.y),
+        probeX: Math.round(probeState.x),
+        probeY: Math.round(probeState.y),
+        probeCondition: currentProbeCondition
+      });
+    }
+
+    function renderResponseButtons() {
+      responseButtons.innerHTML = "";
+
+      [
+        { value: "correct", label: "Correct" },
+        { value: "incorrect", label: "Incorrect" }
+      ].forEach((option) => {
+        const button = document.createElement("button");
+        button.textContent = option.label;
+        button.onclick = () => recordResponse(option.value);
+        responseButtons.appendChild(button);
+      });
+    }
+
+    function getProbeCondition(trial, allowedConditions) {
+      return allowedConditions.includes(trial.probeCondition)
+        ? trial.probeCondition
+        : "correct";
+    }
+
+    function getOccluderProgressBounds(trial) {
+      const radius = PROBE_MARKER_RADIUS;
+      const leftX = trial.occluderX + radius;
+      const rightX = trial.occluderX + trial.occluderW - radius;
+      const progresses = [
+        progressForX(trial, leftX),
+        progressForX(trial, rightX)
+      ];
+
+      return {
+        min: Math.min(...progresses),
+        max: Math.max(...progresses)
+      };
+    }
+
+    function getLocationProbeProgress(correctProgress, condition, bounds) {
+      const desiredOffset = currentTrial?.probeOffset ?? DEFAULT_LOCATION_PROBE_OFFSET;
+      const symmetricOffset = Math.min(
+        desiredOffset,
+        correctProgress - bounds.min,
+        bounds.max - correctProgress
+      );
+
+      if (condition === "too-early") {
+        return correctProgress - symmetricOffset;
+      }
+
+      if (condition === "too-late") {
+        return correctProgress + symmetricOffset;
+      }
+
+      return correctProgress;
+    }
+
+    function drawProbeMarker(x, y) {
+      ctx.beginPath();
+      ctx.arc(x, y, PROBE_MARKER_RADIUS, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255, 0, 0, 0.45)";
+      ctx.fill();
+
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "red";
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(x - 22, y);
+      ctx.lineTo(x + 22, y);
+      ctx.moveTo(x, y - 22);
+      ctx.lineTo(x, y + 22);
+      ctx.stroke();
+    }
+
+    function recordResponse(response) {
+      if (!currentTrial || !currentProbeCondition) {
+        return;
+      }
+
+      const correctResponse = currentProbeCondition === "correct" ? "correct" : "incorrect";
+      const isCorrect = response === correctResponse;
+
+      responseFeedback.className = isCorrect ? "correct" : "incorrect";
+      responseFeedback.textContent = isCorrect ? "✓" : "✕";
+
+      console.log("RESPONSE", {
+        trialName: currentTrial.name,
+        trialType: currentTrial.trialType,
+        trialVersion: currentTrialVersion,
+        probeMode: currentTrial.probeMode,
+        probeCondition: currentProbeCondition,
+        response: response,
+        correctResponse: correctResponse,
+        isCorrect: isCorrect,
+        trueStateAtDing: {
+          x: Math.round(trueStateAtDing.x),
+          y: Math.round(trueStateAtDing.y),
+          gray: trueStateAtDing.gray
+        }
+      });
+    }
+
+    // ------------------------------------------------------
+    // Utility
+    // ------------------------------------------------------
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    // Initialize
+    switchSection("color");
+    clearCanvas();
+  </script>
+</body>
+</html>

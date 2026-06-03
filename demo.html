@@ -149,42 +149,8 @@
       font-size: 14px;
     }
 
-    .probe-area {
-      margin-top: 20px;
-      padding: 18px;
-      background: #fafafa;
-      border: 1px solid #ddd;
-      border-radius: 10px;
-    }
-
     .hidden {
       display: none;
-    }
-
-    #probe-display {
-      margin: 14px 0;
-      min-height: 70px;
-    }
-
-    .response-buttons button {
-      background: #333;
-      color: white;
-      margin-right: 10px;
-    }
-
-    #response-feedback {
-      font-size: 48px;
-      font-weight: bold;
-      margin-top: 10px;
-      line-height: 1;
-    }
-
-    #response-feedback.correct {
-      color: #138a36;
-    }
-
-    #response-feedback.incorrect {
-      color: #c62828;
     }
 
     .section-switch {
@@ -316,28 +282,19 @@
                 <input
                   type="radio"
                   name="color-probe-condition"
-                  value="too-dark"
+                  value="too-early"
                   onchange="setTrialProbeCondition(this.value)"
                 />
-                too dark
+                early distractor
               </label>
               <label class="radio-option">
                 <input
                   type="radio"
                   name="color-probe-condition"
-                  value="too-light"
+                  value="too-late"
                   onchange="setTrialProbeCondition(this.value)"
                 />
-                too light
-              </label>
-              <label class="radio-option">
-                <input
-                  type="radio"
-                  name="color-probe-condition"
-                  value="correct"
-                  onchange="setTrialProbeCondition(this.value)"
-                />
-                correct
+                late distractor
               </label>
             </div>
           </div>
@@ -352,7 +309,7 @@
                   value="too-early"
                   onchange="setTrialProbeCondition(this.value)"
                 />
-                too early
+                early distractor
               </label>
               <label class="radio-option">
                 <input
@@ -361,16 +318,7 @@
                   value="too-late"
                   onchange="setTrialProbeCondition(this.value)"
                 />
-                too late
-              </label>
-              <label class="radio-option">
-                <input
-                  type="radio"
-                  name="location-probe-condition"
-                  value="correct"
-                  onchange="setTrialProbeCondition(this.value)"
-                />
-                correct
+                late distractor
               </label>
             </div>
           </div>
@@ -402,17 +350,6 @@
 
       <div class="demo-area">
         <canvas id="stimulus-canvas" width="900" height="520"></canvas>
-
-        <div id="probe-area" class="probe-area hidden">
-          <h2 id="probe-question">Probe Question</h2>
-
-          <div id="probe-display"></div>
-
-          <div id="response-buttons" class="response-buttons">
-          </div>
-
-          <p id="response-feedback"></p>
-        </div>
       </div>
     </div>
   </div>
@@ -432,11 +369,6 @@
 
     const trialListDiv = document.getElementById("trial-list");
     const trialInfoPre = document.getElementById("trial-info");
-    const probeArea = document.getElementById("probe-area");
-    const probeQuestion = document.getElementById("probe-question");
-    const probeDisplay = document.getElementById("probe-display");
-    const responseButtons = document.getElementById("response-buttons");
-    const responseFeedback = document.getElementById("response-feedback");
     const colorSectionBtn = document.getElementById("color-section-btn");
     const locationSectionBtn = document.getElementById("location-section-btn");
     const trialSettings = document.getElementById("trial-settings");
@@ -461,11 +393,18 @@
     let circleSpeed = SPEED_BASELINE;
     let currentTrialVersion = "occlusion";
     let currentProbeCondition = null;
+    let currentProbeOptions = [];
+    let currentProbeFeedback = null;
+    let currentOccluder = null;
     let currentDingProgress = null;
     let currentDingPosition = null;
     const PROBE_MARKER_RADIUS = 14;
     const DEFAULT_COLOR_PROBE_OFFSET = 70;
     const DEFAULT_LOCATION_PROBE_OFFSET = 0.14;
+    const OCCLUDER_START_MIN_PROGRESS = 0.48;
+    const OCCLUDER_START_MAX_PROGRESS = 0.72;
+    const OCCLUDER_MIN_LENGTH = 0.28;
+    const OCCLUDER_MARKER_PADDING = 42;
 
     // ------------------------------------------------------
     // Ding sound
@@ -508,10 +447,10 @@
     //
     // dingPosition:
     // "early" = earlier inside occluder, "late" = later inside occluder
+    // The occluder is generated randomly on the second half of the path on each replay.
     //
     // probeCondition:
-    // color: "too-dark", "too-light", "correct"
-    // location: "too-early", "too-late", "correct"
+    // "too-early", "too-late"
     // ======================================================
 
     const COLOR_TRIALS = [
@@ -529,19 +468,12 @@
         endGray: 255,
 
         duration: 3000,
-        occluderStartTime: 900,
-        occluderEndTime: 2400,
         dingPosition: "early",
 
         objectRadius: 34,
 
-        occluderX: 160,
-        occluderY: 55,
-        occluderW: 580,
-        occluderH: 200,
-
         probeMode: "color",
-        probeCondition: "too-light"
+        probeCondition: "too-late"
       },
 
       {
@@ -558,19 +490,12 @@
         endGray: 0,
 
         duration: 3000,
-        occluderStartTime: 900,
-        occluderEndTime: 2400,
         dingPosition: "late",
 
         objectRadius: 34,
 
-        occluderX: 160,
-        occluderY: 55,
-        occluderW: 580,
-        occluderH: 200,
-
         probeMode: "color",
-        probeCondition: "too-dark"
+        probeCondition: "too-late"
       }
     ];
 
@@ -585,20 +510,13 @@
         endY: 420,
         arcDirection: -1,
 
-        startGray: 40,
-        endGray: 220,
+        startGray: 130,
+        endGray: 130,
 
         duration: 3000,
-        occluderStartTime: 900,
-        occluderEndTime: 2400,
         dingPosition: "early",
 
         objectRadius: 34,
-
-        occluderX: 160,
-        occluderY: 55,
-        occluderW: 580,
-        occluderH: 200,
 
         probeMode: "location",
         probeCondition: "too-early"
@@ -614,23 +532,16 @@
         endY: 420,
         arcDirection: -1,
 
-        startGray: 40,
-        endGray: 220,
+        startGray: 130,
+        endGray: 130,
 
         duration: 3000,
-        occluderStartTime: 900,
-        occluderEndTime: 2400,
         dingPosition: "late",
 
         objectRadius: 34,
 
-        occluderX: 160,
-        occluderY: 55,
-        occluderW: 580,
-        occluderH: 200,
-
         probeMode: "location",
-        probeCondition: "correct"
+        probeCondition: "too-late"
       },
 
       {
@@ -643,20 +554,13 @@
         endY: 100,
         arcDirection: 1,
 
-        startGray: 40,
-        endGray: 220,
+        startGray: 130,
+        endGray: 130,
 
         duration: 3000,
-        occluderStartTime: 900,
-        occluderEndTime: 2400,
         dingPosition: "late",
 
         objectRadius: 34,
-
-        occluderX: 160,
-        occluderY: 266,
-        occluderW: 580,
-        occluderH: 200,
 
         probeMode: "location",
         probeCondition: "too-late"
@@ -672,20 +576,13 @@
         endY: 100,
         arcDirection: 1,
 
-        startGray: 40,
-        endGray: 220,
+        startGray: 130,
+        endGray: 130,
 
         duration: 3000,
-        occluderStartTime: 900,
-        occluderEndTime: 2400,
         dingPosition: "late",
 
         objectRadius: 34,
-
-        occluderX: 160,
-        occluderY: 266,
-        occluderW: 580,
-        occluderH: 200,
 
         probeMode: "location",
         probeCondition: "too-early"
@@ -799,7 +696,7 @@
         return;
       }
 
-      currentTrial.probeCondition = condition;
+      currentTrial.probeCondition = normalizeProbeCondition(condition);
       syncTrialSettingControls(currentTrial);
 
       if (shouldReplay) {
@@ -838,6 +735,7 @@
       }
 
       syncRadioGroup(dingPositionInputs, trial.dingPosition);
+      trial.probeCondition = normalizeProbeCondition(trial.probeCondition);
 
       if (trial.probeMode === "color") {
         colorProbeSettings.classList.remove("hidden");
@@ -884,6 +782,9 @@
           endGray: trial.endGray,
           duration: trial.duration,
           dingPosition: trial.dingPosition,
+          dingProgress: currentDingProgress,
+          occluderStartProgress: currentOccluder?.startProgress,
+          occluderEndProgress: currentOccluder?.endProgress,
           probeMode: trial.probeMode,
           probeCondition: trial.probeCondition,
           probeOffset: trial.probeOffset
@@ -907,6 +808,9 @@
       trueStateAtDing = null;
       objectStopped = false;
       currentProbeCondition = null;
+      currentProbeOptions = [];
+      currentProbeFeedback = null;
+      currentOccluder = createRandomOccluder(currentTrial);
       setDingPosition(currentTrial);
       updateTrialInfo(currentTrial);
 
@@ -923,11 +827,9 @@
     }
 
     function hideProbe() {
-      probeArea.classList.add("hidden");
-      probeDisplay.innerHTML = "";
-      responseButtons.innerHTML = "";
-      responseFeedback.textContent = "";
-      responseFeedback.className = "";
+      currentProbeOptions = [];
+      currentProbeFeedback = null;
+      canvas.style.cursor = "default";
     }
 
     // ------------------------------------------------------
@@ -1029,6 +931,23 @@
     }
 
     function getDingCandidates(trial) {
+      if (currentOccluder) {
+        const markerOffset = getOccluderMarkerOffset(trial);
+        const windowLength = currentOccluder.endProgress - currentOccluder.startProgress;
+        const dingInset = Math.min(markerOffset, windowLength * 0.28);
+
+        return [
+          {
+            label: "early",
+            progress: currentOccluder.startProgress + dingInset
+          },
+          {
+            label: "late",
+            progress: currentOccluder.endProgress - dingInset
+          }
+        ];
+      }
+
       const positions = [
         ["early", 0.35],
         ["late", 0.65]
@@ -1056,6 +975,78 @@
 
     function interpolate(start, end, progress) {
       return start + (end - start) * progress;
+    }
+
+    function createRandomOccluder(trial) {
+      const markerOffset = getOccluderMarkerOffset(trial);
+      const minWindowLength = Math.max(
+        OCCLUDER_MIN_LENGTH,
+        markerOffset * 2
+      );
+      const startMax = Math.min(
+        OCCLUDER_START_MAX_PROGRESS,
+        1 - minWindowLength
+      );
+      const startProgress = randomBetween(
+        OCCLUDER_START_MIN_PROGRESS,
+        Math.max(OCCLUDER_START_MIN_PROGRESS, startMax)
+      );
+      const endMin = startProgress + minWindowLength;
+      const endProgress = randomBetween(
+        Math.min(endMin, 1),
+        1
+      );
+      const rect = getTrajectorySegmentRect(
+        trial,
+        startProgress,
+        endProgress,
+        trial.objectRadius + PROBE_MARKER_RADIUS + OCCLUDER_MARKER_PADDING
+      );
+
+      return {
+        startProgress,
+        endProgress,
+        rect
+      };
+    }
+
+    function getOccluderMarkerOffset(trial) {
+      const desiredOffset = trial.probeMode === "location"
+        ? trial.probeOffset ?? DEFAULT_LOCATION_PROBE_OFFSET
+        : DEFAULT_LOCATION_PROBE_OFFSET;
+
+      return clamp(desiredOffset, 0.06, 0.16);
+    }
+
+    function getTrajectorySegmentRect(trial, startProgress, endProgress, padding) {
+      const points = [];
+
+      for (let i = 0; i <= 40; i++) {
+        const progress = interpolate(startProgress, endProgress, i / 40);
+        points.push(computeObjectPosition(trial, progress));
+      }
+
+      const xs = points.map((point) => point.x);
+      const ys = points.map((point) => point.y);
+      const minX = Math.max(0, Math.min(...xs) - padding);
+      const maxX = Math.min(canvas.width, Math.max(...xs) + padding);
+      const minY = Math.max(0, Math.min(...ys) - padding);
+      const maxY = Math.min(canvas.height, Math.max(...ys) + padding);
+
+      return {
+        x: minX,
+        y: minY,
+        w: maxX - minX,
+        h: maxY - minY
+      };
+    }
+
+    function randomBetween(min, max) {
+      if (max <= min) {
+        return min;
+      }
+
+      return min + Math.random() * (max - min);
     }
 
     // ------------------------------------------------------
@@ -1164,17 +1155,16 @@
     }
 
     function getOccluderRect(trial) {
-      const horizontalPadding = -35;
-      const verticalPadding = 44;
-      const x = trial.occluderX - horizontalPadding;
-      const y = Math.max(0, trial.occluderY - verticalPadding);
-      const w = trial.occluderW + horizontalPadding * 2;
-      const h = Math.min(
-        canvas.height - y,
-        trial.occluderH + verticalPadding * 2
-      );
+      if (currentOccluder) {
+        return currentOccluder.rect;
+      }
 
-      return { x, y, w, h };
+      return getTrajectorySegmentRect(
+        trial,
+        OCCLUDER_START_MIN_PROGRESS,
+        1,
+        trial.objectRadius + PROBE_MARKER_RADIUS + OCCLUDER_MARKER_PADDING
+      );
     }
 
     // ------------------------------------------------------
@@ -1186,9 +1176,8 @@
         return;
       }
 
-      probeArea.classList.remove("hidden");
-      responseFeedback.textContent = "";
-      responseFeedback.className = "";
+      currentProbeFeedback = null;
+      canvas.style.cursor = "pointer";
 
       if (trial.probeMode === "color") {
         showColorProbe(trial);
@@ -1198,121 +1187,150 @@
     }
 
     function showColorProbe(trial) {
-      currentProbeCondition = getProbeCondition(trial, ["too-dark", "too-light", "correct"]);
-      probeQuestion.textContent = "Was the object this color when the ding occurred?";
+      currentProbeCondition = getProbeCondition(
+        trial,
+        ["too-early", "too-late"]
+      );
+      const distractorTiming = getDistractorTiming(trial);
 
-      let probeGray = trueStateAtDing.gray;
-      const probeOffset = trial.probeOffset ?? DEFAULT_COLOR_PROBE_OFFSET;
+      const correctGray = trueStateAtDing.gray;
+      const distractorGray = getColorDistractorGray(trial, distractorTiming);
+      currentProbeOptions = shuffleProbeOptions([
+        {
+          id: "correct",
+          label: "A",
+          answerType: "correct",
+          timing: "correct",
+          gray: correctGray
+        },
+        {
+          id: distractorTiming,
+          label: "B",
+          answerType: "distractor",
+          timing: distractorTiming,
+          gray: distractorGray
+        }
+      ]);
 
-      if (currentProbeCondition === "too-dark") {
-        probeGray -= probeOffset;
-      } else if (currentProbeCondition === "too-light") {
-        probeGray += probeOffset;
-      }
-
-      probeGray = clamp(probeGray, 0, 255);
-
-      probeDisplay.innerHTML = "";
-      renderResponseButtons();
-
-      const circle = document.createElement("div");
-      circle.style.width = "78px";
-      circle.style.height = "78px";
-      circle.style.borderRadius = "50%";
-      circle.style.border = "3px solid #222";
-      circle.style.background = `rgb(${probeGray}, ${probeGray}, ${probeGray})`;
-
-      probeDisplay.appendChild(circle);
+      layoutColorProbeOptions(trial, currentProbeOptions);
+      drawScene(trial, trueStateAtDing, 0);
+      drawProbeInstruction("Click the color that matched the ding.");
+      drawColorProbeOptions(currentProbeOptions);
 
       console.log("COLOR PROBE", {
         trueGray: trueStateAtDing.gray,
-        probeGray: probeGray,
-        probeOffset: probeOffset,
-        probeCondition: currentProbeCondition
+        distractorGray: distractorGray,
+        distractorTiming: distractorTiming,
+        probeCondition: currentProbeCondition,
+        options: currentProbeOptions
       });
     }
 
+    function getColorDistractorGray(trial, timing) {
+      const probeOffset = trial.probeOffset ?? DEFAULT_COLOR_PROBE_OFFSET;
+      const direction = trial.endGray >= trial.startGray ? 1 : -1;
+      const signedOffset = timing === "early"
+        ? -direction * probeOffset
+        : direction * probeOffset;
+
+      return clamp(trueStateAtDing.gray + signedOffset, 0, 255);
+    }
+
     function showLocationProbe(trial) {
-      currentProbeCondition = getProbeCondition(trial, ["too-early", "too-late", "correct"]);
-      probeQuestion.textContent = "Was the object at this location when the ding occurred?";
-
-      clearCanvas();
-
-      if (currentTrialVersion !== "perception") {
-        drawOccluder(trial);
-      }
+      currentProbeCondition = getProbeCondition(trial, ["too-early", "too-late"]);
+      const distractorTiming = getDistractorTiming(trial);
+      drawScene(trial, trueStateAtDing, 0);
 
       const occluderProgressBounds = getOccluderProgressBounds(trial);
-      const probeProgress = getLocationProbeProgress(
+      const distractorProgress = getLocationProbeProgress(
         trueStateAtDing.progress,
-        currentProbeCondition,
+        `too-${distractorTiming}`,
         occluderProgressBounds
       );
-      const probeState = computeObjectState(
-        trial,
-        probeProgress
-      );
+      const distractorState = computeObjectState(trial, distractorProgress);
 
-      if (currentTrialVersion === "perception") {
-        drawObject(
-          trueStateAtDing.x,
-          trueStateAtDing.y,
-          trial.objectRadius,
-          trueStateAtDing.gray
-        );
-      }
+      currentProbeOptions = shuffleProbeOptions([
+        {
+          id: "correct",
+          label: "A",
+          answerType: "correct",
+          timing: "correct",
+          x: trueStateAtDing.x,
+          y: trueStateAtDing.y,
+          radius: 32
+        },
+        {
+          id: distractorTiming,
+          label: "B",
+          answerType: "distractor",
+          timing: distractorTiming,
+          x: distractorState.x,
+          y: distractorState.y,
+          radius: 32
+        }
+      ]);
 
-      drawProbeMarker(probeState.x, probeState.y);
+      drawProbeInstruction("Click the location that matched the ding.");
+      currentProbeOptions.forEach((option) => {
+        drawProbeMarker(option.x, option.y);
+        drawProbeMarkerLabel(option.label, option.x, option.y);
+      });
       drawFixation();
-
-      probeDisplay.innerHTML = `
-        <p>
-          Was the object there when the ding occurred?
-        </p>
-      `;
-      renderResponseButtons();
 
       console.log("LOCATION PROBE", {
         trueX: Math.round(trueStateAtDing.x),
         trueY: Math.round(trueStateAtDing.y),
-        probeX: Math.round(probeState.x),
-        probeY: Math.round(probeState.y),
-        probeCondition: currentProbeCondition
+        distractorX: Math.round(distractorState.x),
+        distractorY: Math.round(distractorState.y),
+        distractorTiming: distractorTiming,
+        probeCondition: currentProbeCondition,
+        options: currentProbeOptions
       });
     }
 
-    function renderResponseButtons() {
-      responseButtons.innerHTML = "";
+    function getDistractorTiming(trial) {
+      if (currentProbeCondition === "too-early") {
+        return "early";
+      }
 
-      [
-        { value: "correct", label: "Correct" },
-        { value: "incorrect", label: "Incorrect" }
-      ].forEach((option) => {
-        const button = document.createElement("button");
-        button.textContent = option.label;
-        button.onclick = () => recordResponse(option.value);
-        responseButtons.appendChild(button);
-      });
+      if (currentProbeCondition === "too-late") {
+        return "late";
+      }
+
+      return "early";
+    }
+
+    function shuffleProbeOptions(options) {
+      const shouldSwap = Math.random() < 0.5;
+      const orderedOptions = shouldSwap ? [options[1], options[0]] : options;
+
+      return orderedOptions.map((option, index) => ({
+        ...option,
+        label: index === 0 ? "A" : "B"
+      }));
     }
 
     function getProbeCondition(trial, allowedConditions) {
       return allowedConditions.includes(trial.probeCondition)
         ? trial.probeCondition
-        : "correct";
+        : "too-early";
+    }
+
+    function normalizeProbeCondition(condition) {
+      return condition === "too-late" ? "too-late" : "too-early";
     }
 
     function getOccluderProgressBounds(trial) {
-      const radius = PROBE_MARKER_RADIUS;
-      const leftX = trial.occluderX + radius;
-      const rightX = trial.occluderX + trial.occluderW - radius;
-      const progresses = [
-        progressForX(trial, leftX),
-        progressForX(trial, rightX)
-      ];
+      if (currentOccluder) {
+        return {
+          min: currentOccluder.startProgress,
+          max: currentOccluder.endProgress
+        };
+      }
 
       return {
-        min: Math.min(...progresses),
-        max: Math.max(...progresses)
+        min: OCCLUDER_START_MIN_PROGRESS,
+        max: 1
       };
     }
 
@@ -1335,6 +1353,66 @@
       return correctProgress;
     }
 
+    function layoutColorProbeOptions(trial, options) {
+      const optionY = trial.arcDirection === -1 ? canvas.height - 82 : 82;
+      const optionSpacing = 130;
+      const startX = canvas.width / 2 - optionSpacing / 2;
+
+      options.forEach((option, index) => {
+        option.x = startX + optionSpacing * index;
+        option.y = optionY;
+        option.radius = 38;
+      });
+    }
+
+    function drawProbeInstruction(text) {
+      ctx.save();
+      ctx.font = "bold 18px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.88)";
+      ctx.strokeStyle = "#d0d0d0";
+      ctx.lineWidth = 1;
+      roundRect(ctx, canvas.width / 2 - 205, 14, 410, 38, 8);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#222";
+      ctx.fillText(text, canvas.width / 2, 33);
+      ctx.restore();
+    }
+
+    function drawColorProbeOptions(options) {
+      options.forEach((option) => {
+        drawColorProbeOption(option);
+      });
+    }
+
+    function drawColorProbeOption(option) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(option.x, option.y, option.radius + 12, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.88)";
+      ctx.fill();
+      ctx.strokeStyle = "#cfcfcf";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(option.x, option.y, option.radius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgb(${option.gray}, ${option.gray}, ${option.gray})`;
+      ctx.fill();
+      ctx.strokeStyle = "#222";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      ctx.font = "bold 18px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#222";
+      ctx.fillText(option.label, option.x, option.y + option.radius + 28);
+      ctx.restore();
+    }
+
     function drawProbeMarker(x, y) {
       ctx.beginPath();
       ctx.arc(x, y, PROBE_MARKER_RADIUS, 0, Math.PI * 2);
@@ -1353,16 +1431,113 @@
       ctx.stroke();
     }
 
-    function recordResponse(response) {
-      if (!currentTrial || !currentProbeCondition) {
+    function drawProbeMarkerLabel(label, x, y) {
+      ctx.save();
+      ctx.font = "bold 16px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#333";
+      ctx.beginPath();
+      ctx.arc(x, y - 32, 15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "white";
+      ctx.fillText(label, x, y - 32);
+      ctx.restore();
+    }
+
+    function drawProbeFeedback(option, isCorrect) {
+      const mark = isCorrect ? "✓" : "✕";
+      const color = isCorrect ? "#138a36" : "#c62828";
+      const feedbackX = option.x + option.radius + 28;
+      const feedbackY = option.y - option.radius - 2;
+
+      ctx.save();
+      ctx.font = "bold 42px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = color;
+      ctx.fillText(mark, feedbackX, feedbackY);
+      ctx.restore();
+    }
+
+    function redrawProbeWithFeedback() {
+      if (!currentTrial || !trueStateAtDing) {
         return;
       }
 
-      const correctResponse = currentProbeCondition === "correct" ? "correct" : "incorrect";
+      drawScene(currentTrial, trueStateAtDing, 0);
+
+      if (currentTrial.probeMode === "color") {
+        drawProbeInstruction("Click the color that matched the ding.");
+        drawColorProbeOptions(currentProbeOptions);
+      } else if (currentTrial.probeMode === "location") {
+        drawProbeInstruction("Click the location that matched the ding.");
+        currentProbeOptions.forEach((option) => {
+          drawProbeMarker(option.x, option.y);
+          drawProbeMarkerLabel(option.label, option.x, option.y);
+        });
+        drawFixation();
+      }
+
+      if (currentProbeFeedback) {
+        drawProbeFeedback(
+          currentProbeFeedback.option,
+          currentProbeFeedback.isCorrect
+        );
+      }
+    }
+
+    function getCanvasClickPosition(event) {
+      const rect = canvas.getBoundingClientRect();
+
+      return {
+        x: (event.clientX - rect.left) * (canvas.width / rect.width),
+        y: (event.clientY - rect.top) * (canvas.height / rect.height)
+      };
+    }
+
+    function findClickedProbeOption(position) {
+      return currentProbeOptions.find((option) => {
+        const dx = position.x - option.x;
+        const dy = position.y - option.y;
+        const hitRadius = option.radius + 10;
+
+        return Math.sqrt(dx * dx + dy * dy) <= hitRadius;
+      });
+    }
+
+    function handleCanvasClick(event) {
+      if (!currentTrial || !currentProbeOptions.length) {
+        return;
+      }
+
+      const clickedOption = findClickedProbeOption(getCanvasClickPosition(event));
+
+      if (clickedOption) {
+        recordResponse(clickedOption.id);
+      }
+    }
+
+    function recordResponse(response) {
+      if (!currentTrial || !currentProbeOptions.length) {
+        return;
+      }
+
+      const selectedOption = currentProbeOptions.find((option) => option.id === response);
+      const correctOption = currentProbeOptions.find((option) => option.answerType === "correct");
+
+      if (!selectedOption || !correctOption) {
+        return;
+      }
+
+      const correctResponse = correctOption?.id;
       const isCorrect = response === correctResponse;
 
-      responseFeedback.className = isCorrect ? "correct" : "incorrect";
-      responseFeedback.textContent = isCorrect ? "✓" : "✕";
+      currentProbeFeedback = {
+        option: selectedOption,
+        isCorrect: isCorrect
+      };
+      redrawProbeWithFeedback();
 
       console.log("RESPONSE", {
         trialName: currentTrial.name,
@@ -1371,6 +1546,7 @@
         probeMode: currentTrial.probeMode,
         probeCondition: currentProbeCondition,
         response: response,
+        selectedTiming: selectedOption?.timing,
         correctResponse: correctResponse,
         isCorrect: isCorrect,
         trueStateAtDing: {
@@ -1389,7 +1565,22 @@
       return Math.max(min, Math.min(max, value));
     }
 
+    function roundRect(context, x, y, width, height, radius) {
+      context.beginPath();
+      context.moveTo(x + radius, y);
+      context.lineTo(x + width - radius, y);
+      context.quadraticCurveTo(x + width, y, x + width, y + radius);
+      context.lineTo(x + width, y + height - radius);
+      context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      context.lineTo(x + radius, y + height);
+      context.quadraticCurveTo(x, y + height, x, y + height - radius);
+      context.lineTo(x, y + radius);
+      context.quadraticCurveTo(x, y, x + radius, y);
+      context.closePath();
+    }
+
     // Initialize
+    canvas.addEventListener("click", handleCanvasClick);
     switchSection("color");
     clearCanvas();
   </script>

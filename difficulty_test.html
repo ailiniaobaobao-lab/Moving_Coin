@@ -157,15 +157,31 @@
   </div>
 
   <div id="intro-screen" class="screen center-screen">
-    <form class="panel" onsubmit="startExperiment(event)">
+    <form class="panel" onsubmit="submitParticipantId(event)">
       <h1>Difficulty Test</h1>
       <p>Enter participant ID to begin.</p>
       <div class="field">
         <label for="participant-id-input">Participant ID</label>
         <input id="participant-id-input" autocomplete="off" required />
       </div>
-      <button class="primary-btn" type="submit">Start Experiment</button>
+      <button class="primary-btn" type="submit">Continue</button>
     </form>
+  </div>
+
+  <div id="fullscreen-screen" class="screen center-screen hidden">
+    <div class="panel">
+      <h1>Fullscreen Mode</h1>
+      <p>The experiment will now enter fullscreen mode.</p>
+      <button class="primary-btn" onclick="enterFullscreenStep()">OK</button>
+    </div>
+  </div>
+
+  <div id="ready-screen" class="screen center-screen hidden">
+    <div class="panel">
+      <h1>Ready</h1>
+      <p>Press Start when you are ready to begin.</p>
+      <button class="primary-btn" onclick="startExperiment()">Start</button>
+    </div>
   </div>
 
   <div id="experiment-screen" class="screen experiment-screen hidden">
@@ -194,6 +210,8 @@
     const canvas = document.getElementById("stimulus-canvas");
     const ctx = canvas.getContext("2d");
     const introScreen = document.getElementById("intro-screen");
+    const fullscreenScreen = document.getElementById("fullscreen-screen");
+    const readyScreen = document.getElementById("ready-screen");
     const experimentScreen = document.getElementById("experiment-screen");
     const breakScreen = document.getElementById("break-screen");
     const finishScreen = document.getElementById("finish-screen");
@@ -239,7 +257,7 @@
     let responses = [];
     let experimentRunning = false;
 
-    function startExperiment(event) {
+    function submitParticipantId(event) {
       if (event) {
         event.preventDefault();
       }
@@ -251,6 +269,16 @@
         return;
       }
 
+      showScreen("fullscreen");
+    }
+
+    function enterFullscreenStep() {
+      requestBrowserFullscreen();
+      showScreen("ready");
+      updateStatus();
+    }
+
+    function startExperiment() {
       stopAnimation();
       responses = [];
       trials = buildTrialSequence();
@@ -259,7 +287,6 @@
       experimentStartIso = new Date().toISOString();
       downloadBtn.disabled = true;
       showScreen("experiment");
-      requestBrowserFullscreen();
       nextTrial();
     }
 
@@ -311,8 +338,10 @@
     }
 
     function showScreen(screenName) {
-      topProgress.classList.toggle("hidden", screenName === "intro");
+      topProgress.classList.toggle("hidden", screenName === "intro" || screenName === "fullscreen");
       introScreen.classList.toggle("hidden", screenName !== "intro");
+      fullscreenScreen.classList.toggle("hidden", screenName !== "fullscreen");
+      readyScreen.classList.toggle("hidden", screenName !== "ready");
       experimentScreen.classList.toggle("hidden", screenName !== "experiment");
       breakScreen.classList.toggle("hidden", screenName !== "break");
       finishScreen.classList.toggle("hidden", screenName !== "finish");

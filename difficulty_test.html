@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Difficulty Test</title>
+
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: #eeeeee;
+      color: #222;
+    }
+
+    .screen {
+      min-height: 100vh;
+      box-sizing: border-box;
+    }
+
+    .center-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .panel {
+      width: min(420px, 100%);
+      background: white;
+      padding: 24px;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    .experiment-screen {
+      display: grid;
+      grid-template-rows: 1fr;
+      background: #eeeeee;
+      overflow: hidden;
+    }
+
+    .top-progress {
+      position: fixed;
+      top: 16px;
+      left: 0;
+      z-index: 20;
+      width: 100%;
+      height: 16px;
+      background: transparent;
+      display: flex;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .progress-track {
+      width: min(720px, calc(100% - 48px));
+      height: 10px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #d8d8d8;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+    }
+
+    .progress-fill {
+      width: 0%;
+      height: 100%;
+      background: #2d6cdf;
+      transition: width 160ms linear;
+    }
+
+    .stage {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 56px 18px 18px;
+      box-sizing: border-box;
+      min-height: 0;
+    }
+
+    canvas {
+      width: min(100%, calc((100vh - 54px) * 1.7308));
+      max-height: calc(100vh - 54px);
+      height: auto;
+      background: #eeeeee;
+      border: none;
+      border-radius: 0;
+      display: block;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 14px;
+      font-size: 15px;
+      margin: 6px 0;
+    }
+
+    .primary-btn {
+      width: 100%;
+      background: #2d6cdf;
+      color: white;
+    }
+
+    .download-btn {
+      width: 100%;
+      background: #138a36;
+      color: white;
+    }
+
+    .download-btn:disabled {
+      cursor: default;
+      opacity: 0.45;
+    }
+
+    .field {
+      display: grid;
+      gap: 8px;
+      margin: 16px 0;
+    }
+
+    .field label {
+      font-size: 14px;
+      font-weight: bold;
+    }
+
+    .field input {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #bbb;
+      border-radius: 6px;
+      font-size: 16px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 24px;
+    }
+
+    p {
+      line-height: 1.45;
+      margin: 10px 0;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="top-progress" class="top-progress hidden">
+    <div class="progress-track">
+      <div id="progress-fill" class="progress-fill"></div>
+    </div>
+  </div>
+
+  <div id="intro-screen" class="screen center-screen">
+    <form class="panel" onsubmit="startExperiment(event)">
+      <h1>Difficulty Test</h1>
+      <p>Enter participant ID to begin.</p>
+      <div class="field">
+        <label for="participant-id-input">Participant ID</label>
+        <input id="participant-id-input" autocomplete="off" required />
+      </div>
+      <button class="primary-btn" type="submit">Start Experiment</button>
+    </form>
+  </div>
+
+  <div id="experiment-screen" class="screen experiment-screen hidden">
+    <div class="stage">
+      <canvas id="stimulus-canvas" width="900" height="520"></canvas>
+    </div>
+  </div>
+
+  <div id="break-screen" class="screen center-screen hidden">
+    <div class="panel">
+      <h1>Break</h1>
+      <p id="break-text">You may take a short rest.</p>
+      <button class="primary-btn" onclick="continueExperiment()">Continue</button>
+    </div>
+  </div>
+
+  <div id="finish-screen" class="screen center-screen hidden">
+    <div class="panel">
+      <h1>Finished</h1>
+      <p>The experiment is complete. Please download the CSV before closing this page.</p>
+      <button id="download-btn" class="download-btn" onclick="downloadData()" disabled>Download CSV</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById("stimulus-canvas");
+    const ctx = canvas.getContext("2d");
+    const introScreen = document.getElementById("intro-screen");
+    const experimentScreen = document.getElementById("experiment-screen");
+    const breakScreen = document.getElementById("break-screen");
+    const finishScreen = document.getElementById("finish-screen");
+    const topProgress = document.getElementById("top-progress");
+    const participantIdInput = document.getElementById("participant-id-input");
+    const progressFill = document.getElementById("progress-fill");
+    const breakText = document.getElementById("break-text");
+    const downloadBtn = document.getElementById("download-btn");
+
+    const SPEED_BASELINE = 0.5;
+    const circleSpeed = SPEED_BASELINE;
+    const currentTrialVersion = "occlusion";
+    const PROBE_MARKER_RADIUS = 14;
+    const OCCLUDER_START_MIN_PROGRESS = 0.48;
+    const OCCLUDER_START_MAX_PROGRESS = 0.72;
+    const OCCLUDER_MIN_LENGTH = 0.28;
+    const OCCLUDER_MARKER_PADDING = 42;
+    const DARK_GRAY = 26;
+    const WHITE_GRAY = 255;
+    const COLOR_SCALE = WHITE_GRAY - DARK_GRAY;
+    const OFFSET_PERCENTS = [0.03, 0.06, 0.09, 0.12, 0.15, 0.18, 0.21, 0.24, 0.27, 0.30];
+    const REPS_PER_CONDITION = 10;
+    const TOTAL_TRIALS = OFFSET_PERCENTS.length * 2 * REPS_PER_CONDITION;
+    const BREAK_INTERVAL = 40;
+
+    let participantId = "";
+    let experimentStartIso = "";
+    let trials = [];
+    let trialIndex = -1;
+    let currentTrial = null;
+    let animationFrameId = null;
+    let animationStartTime = null;
+    let dingPlayed = false;
+    let trueStateAtDing = null;
+    let objectStopped = false;
+    let currentProbeCondition = null;
+    let currentProbeOptions = [];
+    let currentProbeFeedback = null;
+    let currentOccluder = null;
+    let currentDingProgress = null;
+    let currentDingPosition = null;
+    let probeShownAt = null;
+    let responses = [];
+    let experimentRunning = false;
+
+    function startExperiment(event) {
+      if (event) {
+        event.preventDefault();
+      }
+
+      participantId = participantIdInput.value.trim();
+
+      if (!participantId) {
+        participantIdInput.focus();
+        return;
+      }
+
+      stopAnimation();
+      responses = [];
+      trials = buildTrialSequence();
+      trialIndex = -1;
+      experimentRunning = true;
+      experimentStartIso = new Date().toISOString();
+      downloadBtn.disabled = true;
+      showScreen("experiment");
+      requestBrowserFullscreen();
+      nextTrial();
+    }
+
+    function pauseExperiment() {
+      experimentRunning = false;
+      stopAnimation();
+    }
+
+    function nextTrial() {
+      if (!experimentRunning) {
+        return;
+      }
+
+      trialIndex += 1;
+
+      if (trialIndex >= trials.length) {
+        finishExperiment();
+        return;
+      }
+
+      currentTrial = trials[trialIndex];
+      updateStatus();
+      runCurrentTrial();
+    }
+
+    function finishExperiment() {
+      experimentRunning = false;
+      stopAnimation();
+      hideProbe();
+      clearCanvas();
+      downloadBtn.disabled = responses.length === 0;
+      showScreen("finish");
+      updateStatus();
+    }
+
+    function continueExperiment() {
+      experimentRunning = true;
+      showScreen("experiment");
+      nextTrial();
+    }
+
+    function showBreak() {
+      experimentRunning = false;
+      stopAnimation();
+      hideProbe();
+      breakText.textContent = `${responses.length} of ${TOTAL_TRIALS} trials completed. You may take a short rest.`;
+      showScreen("break");
+      updateStatus();
+    }
+
+    function showScreen(screenName) {
+      topProgress.classList.toggle("hidden", screenName === "intro");
+      introScreen.classList.toggle("hidden", screenName !== "intro");
+      experimentScreen.classList.toggle("hidden", screenName !== "experiment");
+      breakScreen.classList.toggle("hidden", screenName !== "break");
+      finishScreen.classList.toggle("hidden", screenName !== "finish");
+    }
+
+    function requestBrowserFullscreen() {
+      const root = document.documentElement;
+
+      if (root.requestFullscreen && !document.fullscreenElement) {
+        root.requestFullscreen().catch(() => {});
+      }
+    }
+
+    function buildTrialSequence() {
+      const baseTrials = [];
+      let conditionId = 1;
+
+      OFFSET_PERCENTS.forEach((offsetPercent) => {
+        for (let rep = 1; rep <= REPS_PER_CONDITION; rep++) {
+          baseTrials.push({
+            conditionId: conditionId,
+            conditionType: "gray_offset",
+            probeMode: "color",
+            offsetPercent: offsetPercent,
+            probeOffset: Math.round(COLOR_SCALE * offsetPercent),
+            repetition: rep
+          });
+        }
+        conditionId += 1;
+      });
+
+      OFFSET_PERCENTS.forEach((offsetPercent) => {
+        for (let rep = 1; rep <= REPS_PER_CONDITION; rep++) {
+          baseTrials.push({
+            conditionId: conditionId,
+            conditionType: "position_offset",
+            probeMode: "location",
+            offsetPercent: offsetPercent,
+            probeOffset: offsetPercent,
+            repetition: rep
+          });
+        }
+        conditionId += 1;
+      });
+
+      const shuffled = shuffle(baseTrials);
+      const colorDirections = shuffle([
+        ...Array(TOTAL_TRIALS / 2).fill("dark-to-white"),
+        ...Array(TOTAL_TRIALS / 2).fill("white-to-dark")
+      ]);
+
+      return shuffled.map((trial, index) => {
+        const direction = colorDirections[index];
+        const movesLeftToRight = Math.random() < 0.5;
+        const lowerPath = Math.random() < 0.5;
+        const startX = movesLeftToRight ? 120 : 780;
+        const endX = movesLeftToRight ? 780 : 120;
+        const baselineY = lowerPath ? 420 : 100;
+        const arcDirection = lowerPath ? -1 : 1;
+
+        return {
+          ...trial,
+          trialNumber: index + 1,
+          name: `${trial.conditionType}_${Math.round(trial.offsetPercent * 100)}_${trial.repetition}`,
+          trialType: "difficulty_test",
+          startX,
+          startY: baselineY,
+          endX,
+          endY: baselineY,
+          arcDirection,
+          trajectoryDirection: movesLeftToRight ? "left-to-right" : "right-to-left",
+          trajectoryArc: lowerPath ? "upper-arc-from-lower-baseline" : "lower-arc-from-upper-baseline",
+          colorDirection: direction,
+          startGray: direction === "dark-to-white" ? DARK_GRAY : WHITE_GRAY,
+          endGray: direction === "dark-to-white" ? WHITE_GRAY : DARK_GRAY,
+          duration: 3000,
+          dingPosition: Math.random() < 0.5 ? "early" : "late",
+          probeCondition: Math.random() < 0.5 ? "too-early" : "too-late",
+          objectRadius: 34
+        };
+      });
+    }
+
+    function runCurrentTrial() {
+      stopAnimation();
+      hideProbe();
+
+      animationStartTime = null;
+      dingPlayed = false;
+      trueStateAtDing = null;
+      objectStopped = false;
+      currentProbeCondition = null;
+      currentProbeOptions = [];
+      currentProbeFeedback = null;
+      probeShownAt = null;
+      currentOccluder = createRandomOccluder(currentTrial);
+      setDingPosition(currentTrial);
+
+      animationFrameId = requestAnimationFrame((timestamp) => {
+        animationLoop(timestamp, currentTrial);
+      });
+    }
+
+    function stopAnimation() {
+      if (animationFrameId) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+    }
+
+    function hideProbe() {
+      currentProbeOptions = [];
+      currentProbeFeedback = null;
+      canvas.style.cursor = "default";
+    }
+
+    function animationLoop(timestamp, trial) {
+      if (!animationStartTime) {
+        animationStartTime = timestamp;
+      }
+
+      const realElapsed = timestamp - animationStartTime;
+      const elapsed = realElapsed * circleSpeed;
+      const progress = Math.min(elapsed / trial.duration, 1);
+      const liveState = computeObjectState(trial, progress);
+
+      if (!dingPlayed && progress >= currentDingProgress) {
+        dingPlayed = true;
+        trueStateAtDing = {
+          ...computeObjectState(trial, currentDingProgress),
+          progress: currentDingProgress
+        };
+
+        playDing();
+        objectStopped = true;
+        drawScene(trial, trueStateAtDing);
+        animationFrameId = null;
+        showProbe(trial);
+        return;
+      }
+
+      const stateToDraw = objectStopped && trueStateAtDing ? trueStateAtDing : liveState;
+      drawScene(trial, stateToDraw);
+
+      animationFrameId = requestAnimationFrame((newTimestamp) => {
+        animationLoop(newTimestamp, trial);
+      });
+    }
+
+    function computeObjectState(trial, progress) {
+      const position = computeObjectPosition(trial, progress);
+      const gray = interpolate(trial.startGray, trial.endGray, progress);
+
+      return {
+        x: position.x,
+        y: position.y,
+        gray: Math.round(gray)
+      };
+    }
+
+    function computeObjectPosition(trial, progress) {
+      if (trial.arcDirection && trial.startY === trial.endY) {
+        const centerX = (trial.startX + trial.endX) / 2;
+        const radius = Math.abs(trial.endX - trial.startX) / 2;
+        const startAngle = trial.startX < trial.endX ? Math.PI : 0;
+        const endAngle = trial.startX < trial.endX ? 0 : Math.PI;
+        const angle = interpolate(startAngle, endAngle, progress);
+
+        return {
+          x: centerX + Math.cos(angle) * radius,
+          y: trial.startY + trial.arcDirection * Math.sin(angle) * radius
+        };
+      }
+
+      return {
+        x: interpolate(trial.startX, trial.endX, progress),
+        y: interpolate(trial.startY, trial.endY, progress)
+      };
+    }
+
+    function setDingPosition(trial) {
+      const candidates = getDingCandidates(trial);
+      const chosen = candidates.find((candidate) => candidate.label === trial.dingPosition)
+        || candidates[0];
+
+      currentDingPosition = chosen.label;
+      currentDingProgress = chosen.progress;
+    }
+
+    function getDingCandidates(trial) {
+      if (currentOccluder) {
+        const markerOffset = getOccluderMarkerOffset(trial);
+        const windowLength = currentOccluder.endProgress - currentOccluder.startProgress;
+        const dingInset = Math.min(markerOffset, windowLength * 0.28);
+
+        return [
+          {
+            label: "early",
+            progress: currentOccluder.startProgress + dingInset
+          },
+          {
+            label: "late",
+            progress: currentOccluder.endProgress - dingInset
+          }
+        ];
+      }
+
+      return [
+        { label: "early", progress: 0.35 },
+        { label: "late", progress: 0.65 }
+      ];
+    }
+
+    function createRandomOccluder(trial) {
+      const markerOffset = getOccluderMarkerOffset(trial);
+      const minWindowLength = Math.max(OCCLUDER_MIN_LENGTH, markerOffset * 2);
+      const startMax = Math.min(OCCLUDER_START_MAX_PROGRESS, 1 - minWindowLength);
+      const startProgress = randomBetween(
+        OCCLUDER_START_MIN_PROGRESS,
+        Math.max(OCCLUDER_START_MIN_PROGRESS, startMax)
+      );
+      const endMin = startProgress + minWindowLength;
+      const endProgress = randomBetween(Math.min(endMin, 1), 1);
+      const rect = getTrajectorySegmentRect(
+        trial,
+        startProgress,
+        endProgress,
+        trial.objectRadius + PROBE_MARKER_RADIUS + OCCLUDER_MARKER_PADDING
+      );
+
+      return {
+        startProgress,
+        endProgress,
+        rect
+      };
+    }
+
+    function getOccluderMarkerOffset(trial) {
+      const desiredOffset = trial.probeMode === "location" ? trial.probeOffset : 0.14;
+      return clamp(desiredOffset, 0.06, 0.16);
+    }
+
+    function getTrajectorySegmentRect(trial, startProgress, endProgress, padding) {
+      const points = [];
+
+      for (let i = 0; i <= 40; i++) {
+        const progress = interpolate(startProgress, endProgress, i / 40);
+        points.push(computeObjectPosition(trial, progress));
+      }
+
+      const xs = points.map((point) => point.x);
+      const ys = points.map((point) => point.y);
+      const minX = Math.max(0, Math.min(...xs) - padding);
+      const maxX = Math.min(canvas.width, Math.max(...xs) + padding);
+      const minY = Math.max(0, Math.min(...ys) - padding);
+      const maxY = Math.min(canvas.height, Math.max(...ys) + padding);
+
+      return {
+        x: minX,
+        y: minY,
+        w: maxX - minX,
+        h: maxY - minY
+      };
+    }
+
+    function showProbe(trial) {
+      if (!trueStateAtDing) {
+        return;
+      }
+
+      currentProbeFeedback = null;
+      canvas.style.cursor = "pointer";
+      probeShownAt = performance.now();
+
+      if (trial.probeMode === "color") {
+        showColorProbe(trial);
+      } else {
+        showLocationProbe(trial);
+      }
+    }
+
+    function showColorProbe(trial) {
+      currentProbeCondition = getProbeCondition(trial);
+      const distractorTiming = getDistractorTiming();
+      const correctGray = trueStateAtDing.gray;
+      const distractorGray = getColorDistractorGray(trial, distractorTiming);
+
+      currentProbeOptions = shuffleProbeOptions([
+        {
+          id: "correct",
+          answerType: "correct",
+          timing: "correct",
+          gray: correctGray
+        },
+        {
+          id: distractorTiming,
+          answerType: "distractor",
+          timing: distractorTiming,
+          gray: distractorGray
+        }
+      ]);
+
+      layoutColorProbeOptions(trial, currentProbeOptions);
+      drawScene(trial, trueStateAtDing);
+      drawProbeInstruction("Click the color that matched the ding.");
+      drawColorProbeOptions(currentProbeOptions);
+    }
+
+    function getColorDistractorGray(trial, timing) {
+      const direction = trial.endGray >= trial.startGray ? 1 : -1;
+      const signedOffset = timing === "early"
+        ? -direction * trial.probeOffset
+        : direction * trial.probeOffset;
+
+      return clamp(trueStateAtDing.gray + signedOffset, DARK_GRAY, WHITE_GRAY);
+    }
+
+    function showLocationProbe(trial) {
+      currentProbeCondition = getProbeCondition(trial);
+      const distractorTiming = getDistractorTiming();
+      drawScene(trial, trueStateAtDing);
+
+      const occluderProgressBounds = getOccluderProgressBounds();
+      const distractorProgress = getLocationProbeProgress(
+        trueStateAtDing.progress,
+        `too-${distractorTiming}`,
+        occluderProgressBounds,
+        trial.probeOffset
+      );
+      const distractorState = computeObjectState(trial, distractorProgress);
+
+      currentProbeOptions = shuffleProbeOptions([
+        {
+          id: "correct",
+          answerType: "correct",
+          timing: "correct",
+          x: trueStateAtDing.x,
+          y: trueStateAtDing.y,
+          radius: 32
+        },
+        {
+          id: distractorTiming,
+          answerType: "distractor",
+          timing: distractorTiming,
+          x: distractorState.x,
+          y: distractorState.y,
+          radius: 32
+        }
+      ]);
+
+      drawProbeInstruction("Click the location that matched the ding.");
+      currentProbeOptions.forEach((option) => {
+        drawProbeMarker(option.x, option.y);
+        drawProbeMarkerLabel(option.label, option.x, option.y);
+      });
+      drawFixation();
+    }
+
+    function getDistractorTiming() {
+      return currentProbeCondition === "too-late" ? "late" : "early";
+    }
+
+    function getProbeCondition(trial) {
+      return trial.probeCondition === "too-late" ? "too-late" : "too-early";
+    }
+
+    function getOccluderProgressBounds() {
+      if (currentOccluder) {
+        return {
+          min: currentOccluder.startProgress,
+          max: currentOccluder.endProgress
+        };
+      }
+
+      return {
+        min: OCCLUDER_START_MIN_PROGRESS,
+        max: 1
+      };
+    }
+
+    function getLocationProbeProgress(correctProgress, condition, bounds, desiredOffset) {
+      const symmetricOffset = Math.min(
+        desiredOffset,
+        correctProgress - bounds.min,
+        bounds.max - correctProgress
+      );
+
+      if (condition === "too-early") {
+        return correctProgress - symmetricOffset;
+      }
+
+      if (condition === "too-late") {
+        return correctProgress + symmetricOffset;
+      }
+
+      return correctProgress;
+    }
+
+    function drawScene(trial, state) {
+      clearCanvas();
+      drawTrajectoryGuide(trial);
+      drawObject(state.x, state.y, trial.objectRadius, state.gray);
+
+      if (currentTrialVersion !== "perception") {
+        drawOccluder(trial);
+        drawTrajectoryGuide(trial, getOccluderRect(trial));
+      }
+
+      drawFixation();
+    }
+
+    function clearCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "#eeeeee";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function drawFixation() {
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+
+      ctx.strokeStyle = "#333";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(centerX - 10, centerY);
+      ctx.lineTo(centerX + 10, centerY);
+      ctx.moveTo(centerX, centerY - 10);
+      ctx.lineTo(centerX, centerY + 10);
+      ctx.stroke();
+    }
+
+    function drawTrajectoryGuide(trial, clipRect = null) {
+      if (clipRect) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(clipRect.x, clipRect.y, clipRect.w, clipRect.h);
+        ctx.clip();
+      }
+
+      ctx.strokeStyle = "rgba(0, 0, 0, 0.18)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 8]);
+      ctx.beginPath();
+
+      for (let i = 0; i <= 80; i++) {
+        const position = computeObjectPosition(trial, i / 80);
+        if (i === 0) {
+          ctx.moveTo(position.x, position.y);
+        } else {
+          ctx.lineTo(position.x, position.y);
+        }
+      }
+
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      if (clipRect) {
+        ctx.restore();
+      }
+    }
+
+    function drawObject(x, y, radius, gray) {
+      const color = `rgb(${gray}, ${gray}, ${gray})`;
+
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      ctx.fill();
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "#222";
+      ctx.stroke();
+    }
+
+    function drawOccluder(trial) {
+      const occluder = getOccluderRect(trial);
+
+      ctx.fillStyle = "#eeeeee";
+      ctx.fillRect(occluder.x, occluder.y, occluder.w, occluder.h);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "rgba(0, 0, 0, 0)";
+      ctx.strokeRect(occluder.x, occluder.y, occluder.w, occluder.h);
+    }
+
+    function getOccluderRect(trial) {
+      if (currentOccluder) {
+        return currentOccluder.rect;
+      }
+
+      return getTrajectorySegmentRect(
+        trial,
+        OCCLUDER_START_MIN_PROGRESS,
+        1,
+        trial.objectRadius + PROBE_MARKER_RADIUS + OCCLUDER_MARKER_PADDING
+      );
+    }
+
+    function layoutColorProbeOptions(trial, options) {
+      const optionY = trial.arcDirection === -1 ? canvas.height - 82 : 128;
+      const optionSpacing = 130;
+      const startX = canvas.width / 2 - optionSpacing / 2;
+
+      options.forEach((option, index) => {
+        option.x = startX + optionSpacing * index;
+        option.y = optionY;
+        option.radius = 38;
+      });
+    }
+
+    function drawProbeInstruction(text) {
+      ctx.save();
+      ctx.font = "bold 18px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.88)";
+      ctx.strokeStyle = "#d0d0d0";
+      ctx.lineWidth = 1;
+      roundRect(ctx, canvas.width / 2 - 205, 14, 410, 38, 8);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#222";
+      ctx.fillText(text, canvas.width / 2, 33);
+      ctx.restore();
+    }
+
+    function drawColorProbeOptions(options) {
+      options.forEach((option) => {
+        drawColorProbeOption(option);
+      });
+    }
+
+    function drawColorProbeOption(option) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(option.x, option.y, option.radius + 12, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.88)";
+      ctx.fill();
+      ctx.strokeStyle = "#cfcfcf";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(option.x, option.y, option.radius, 0, Math.PI * 2);
+      ctx.fillStyle = `rgb(${option.gray}, ${option.gray}, ${option.gray})`;
+      ctx.fill();
+      ctx.strokeStyle = "#222";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      ctx.font = "bold 18px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#222";
+      ctx.fillText(option.label, option.x, option.y + option.radius + 28);
+      ctx.restore();
+    }
+
+    function drawProbeMarker(x, y) {
+      ctx.beginPath();
+      ctx.arc(x, y, PROBE_MARKER_RADIUS, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255, 0, 0, 0.45)";
+      ctx.fill();
+
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = "red";
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(x - 22, y);
+      ctx.lineTo(x + 22, y);
+      ctx.moveTo(x, y - 22);
+      ctx.lineTo(x, y + 22);
+      ctx.stroke();
+    }
+
+    function drawProbeMarkerLabel(label, x, y) {
+      ctx.save();
+      ctx.font = "bold 16px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#333";
+      ctx.beginPath();
+      ctx.arc(x, y - 32, 15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = "white";
+      ctx.fillText(label, x, y - 32);
+      ctx.restore();
+    }
+
+    function drawProbeFeedback(option, isCorrect) {
+      const mark = isCorrect ? "✓" : "✕";
+      const color = isCorrect ? "#138a36" : "#c62828";
+      const feedbackX = option.x + option.radius + 28;
+      const feedbackY = option.y - option.radius - 2;
+
+      ctx.save();
+      ctx.font = "bold 42px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = color;
+      ctx.fillText(mark, feedbackX, feedbackY);
+      ctx.restore();
+    }
+
+    function redrawProbeWithFeedback() {
+      if (!currentTrial || !trueStateAtDing) {
+        return;
+      }
+
+      drawScene(currentTrial, trueStateAtDing);
+
+      if (currentTrial.probeMode === "color") {
+        drawProbeInstruction("Click the color that matched the ding.");
+        drawColorProbeOptions(currentProbeOptions);
+      } else {
+        drawProbeInstruction("Click the location that matched the ding.");
+        currentProbeOptions.forEach((option) => {
+          drawProbeMarker(option.x, option.y);
+          drawProbeMarkerLabel(option.label, option.x, option.y);
+        });
+        drawFixation();
+      }
+
+      if (currentProbeFeedback) {
+        drawProbeFeedback(currentProbeFeedback.option, currentProbeFeedback.isCorrect);
+      }
+    }
+
+    function getCanvasClickPosition(event) {
+      const rect = canvas.getBoundingClientRect();
+
+      return {
+        x: (event.clientX - rect.left) * (canvas.width / rect.width),
+        y: (event.clientY - rect.top) * (canvas.height / rect.height)
+      };
+    }
+
+    function findClickedProbeOption(position) {
+      return currentProbeOptions.find((option) => {
+        const dx = position.x - option.x;
+        const dy = position.y - option.y;
+        const hitRadius = option.radius + 10;
+        return Math.sqrt(dx * dx + dy * dy) <= hitRadius;
+      });
+    }
+
+    function handleCanvasClick(event) {
+      if (!currentTrial || !currentProbeOptions.length || currentProbeFeedback) {
+        return;
+      }
+
+      const clickedOption = findClickedProbeOption(getCanvasClickPosition(event));
+
+      if (clickedOption) {
+        recordResponse(clickedOption.id);
+      }
+    }
+
+    function recordResponse(response) {
+      if (!currentTrial || !currentProbeOptions.length) {
+        return;
+      }
+
+      const selectedOption = currentProbeOptions.find((option) => option.id === response);
+      const correctOption = currentProbeOptions.find((option) => option.answerType === "correct");
+
+      if (!selectedOption || !correctOption) {
+        return;
+      }
+
+      const rt = Math.round(performance.now() - probeShownAt);
+      const isCorrect = response === correctOption.id;
+      currentProbeFeedback = {
+        option: selectedOption,
+        isCorrect
+      };
+
+      responses.push({
+        participant_id: participantId,
+        experiment_start_iso: experimentStartIso,
+        trial_number: currentTrial.trialNumber,
+        condition_id: currentTrial.conditionId,
+        condition_type: currentTrial.conditionType,
+        probe_mode: currentTrial.probeMode,
+        repetition: currentTrial.repetition,
+        offset_percent: currentTrial.offsetPercent,
+        gray_offset: currentTrial.probeMode === "color" ? currentTrial.probeOffset : "",
+        position_offset: currentTrial.probeMode === "location" ? currentTrial.probeOffset : "",
+        color_direction: currentTrial.colorDirection,
+        trajectory_direction: currentTrial.trajectoryDirection,
+        trajectory_arc: currentTrial.trajectoryArc,
+        ding_position: currentDingPosition,
+        ding_progress: roundForData(currentDingProgress),
+        probe_condition: currentProbeCondition,
+        selected_option: selectedOption.label,
+        selected_timing: selectedOption.timing,
+        correct_option: correctOption.label,
+        response_id: response,
+        accuracy: isCorrect ? 1 : 0,
+        rt_ms: rt,
+        true_x: Math.round(trueStateAtDing.x),
+        true_y: Math.round(trueStateAtDing.y),
+        true_gray: trueStateAtDing.gray,
+        occluder_start_progress: roundForData(currentOccluder.startProgress),
+        occluder_end_progress: roundForData(currentOccluder.endProgress)
+      });
+
+      redrawProbeWithFeedback();
+      updateStatus();
+
+      setTimeout(() => {
+        hideProbe();
+        if (responses.length < TOTAL_TRIALS && responses.length % BREAK_INTERVAL === 0) {
+          showBreak();
+        } else {
+          nextTrial();
+        }
+      }, 450);
+    }
+
+    function updateStatus() {
+      const completed = Math.min(responses.length, TOTAL_TRIALS);
+      progressFill.style.width = `${(completed / TOTAL_TRIALS) * 100}%`;
+    }
+
+    function downloadData() {
+      if (!responses.length) {
+        return;
+      }
+
+      const headers = Object.keys(responses[0]);
+      const csvRows = [
+        headers.join(","),
+        ...responses.map((row) => headers.map((header) => csvEscape(row[header])).join(","))
+      ];
+      const blob = new Blob([csvRows.join("\n")], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const safeId = participantId.replace(/[^a-zA-Z0-9_-]/g, "_") || "unknown";
+      link.href = url;
+      link.download = `difficulty_test_${safeId}_${timestamp}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    function playDing() {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      const audioCtx = new AudioContextClass();
+      const oscillator = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(0.0001, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.25, audioCtx.currentTime + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.25);
+      oscillator.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      oscillator.start(audioCtx.currentTime);
+      oscillator.stop(audioCtx.currentTime + 0.28);
+    }
+
+    function drawCenteredMessage(text) {
+      ctx.save();
+      ctx.font = "bold 22px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#222";
+      ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+      ctx.restore();
+    }
+
+    function shuffleProbeOptions(options) {
+      const orderedOptions = Math.random() < 0.5 ? [options[1], options[0]] : options;
+
+      return orderedOptions.map((option, index) => ({
+        ...option,
+        label: index === 0 ? "A" : "B"
+      }));
+    }
+
+    function shuffle(items) {
+      const copied = [...items];
+
+      for (let i = copied.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copied[i], copied[j]] = [copied[j], copied[i]];
+      }
+
+      return copied;
+    }
+
+    function interpolate(start, end, progress) {
+      return start + (end - start) * progress;
+    }
+
+    function randomBetween(min, max) {
+      if (max <= min) {
+        return min;
+      }
+
+      return min + Math.random() * (max - min);
+    }
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function roundForData(value) {
+      return Math.round(value * 10000) / 10000;
+    }
+
+    function csvEscape(value) {
+      if (value === null || value === undefined) {
+        return "";
+      }
+
+      const stringValue = String(value);
+      return /[",\n]/.test(stringValue) ? `"${stringValue.replace(/"/g, '""')}"` : stringValue;
+    }
+
+    function roundRect(context, x, y, width, height, radius) {
+      context.beginPath();
+      context.moveTo(x + radius, y);
+      context.lineTo(x + width - radius, y);
+      context.quadraticCurveTo(x + width, y, x + width, y + radius);
+      context.lineTo(x + width, y + height - radius);
+      context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      context.lineTo(x + radius, y + height);
+      context.quadraticCurveTo(x, y + height, x, y + height - radius);
+      context.lineTo(x, y + radius);
+      context.quadraticCurveTo(x, y, x + radius, y);
+      context.closePath();
+    }
+
+    canvas.addEventListener("click", handleCanvasClick);
+    clearCanvas();
+    updateStatus();
+  </script>
+</body>
+</html>

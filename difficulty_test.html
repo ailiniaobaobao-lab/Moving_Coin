@@ -133,6 +133,11 @@
       font-size: 16px;
     }
 
+    .field input[type="radio"] {
+      width: auto;
+      padding: 0;
+    }
+
     h1 {
       margin: 0 0 10px;
       font-size: 24px;
@@ -163,6 +168,17 @@
       <div class="field">
         <label for="participant-id-input">Participant ID</label>
         <input id="participant-id-input" autocomplete="off" required />
+      </div>
+      <div class="field">
+        <label>Run type</label>
+        <label>
+          <input type="radio" name="run-type" value="tracking" required />
+          tracking
+        </label>
+        <label>
+          <input type="radio" name="run-type" value="fixation" required />
+          fixation
+        </label>
       </div>
       <button class="primary-btn" type="submit">Continue</button>
     </form>
@@ -217,6 +233,7 @@
     const finishScreen = document.getElementById("finish-screen");
     const topProgress = document.getElementById("top-progress");
     const participantIdInput = document.getElementById("participant-id-input");
+    const runTypeInputs = document.querySelectorAll("input[name='run-type']");
     const progressFill = document.getElementById("progress-fill");
     const breakText = document.getElementById("break-text");
     const downloadBtn = document.getElementById("download-btn");
@@ -238,6 +255,7 @@
     const BREAK_INTERVAL = 40;
 
     let participantId = "";
+    let runType = "";
     let experimentStartIso = "";
     let trials = [];
     let trialIndex = -1;
@@ -263,12 +281,14 @@
       }
 
       participantId = participantIdInput.value.trim();
+      const selectedRunType = Array.from(runTypeInputs).find((input) => input.checked);
 
-      if (!participantId) {
+      if (!participantId || !selectedRunType) {
         participantIdInput.focus();
         return;
       }
 
+      runType = selectedRunType.value;
       showScreen("fullscreen");
     }
 
@@ -1020,6 +1040,7 @@
 
       responses.push({
         participant_id: participantId,
+        run_type: runType,
         experiment_start_iso: experimentStartIso,
         trial_number: currentTrial.trialNumber,
         condition_id: currentTrial.conditionId,
